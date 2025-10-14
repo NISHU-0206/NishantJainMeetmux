@@ -5,7 +5,7 @@ This app allows users to register, log in (with JWT-based authentication), and m
 
 ---
 
-## 🚀 Features
+## Features
 - User registration and login (JWT authentication)
 - Create, update, view, and cancel orders
 - Protected routes for authorized users only
@@ -15,7 +15,7 @@ This app allows users to register, log in (with JWT-based authentication), and m
 
 ---
 
-## 🧩 Tech Stack
+## Tech Stack
 **Backend:**
 - Node.js
 - Express.js
