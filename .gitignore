@@ -20,7 +20,7 @@ error.log
 # OS files
 .DS_Store
 Thumbs.db
-
+.xml
 # Build and cache
 dist/
 build/
