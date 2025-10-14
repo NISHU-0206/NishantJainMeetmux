@@ -1,0 +1,477 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+config/db.js
+controllers/orderController.js
+controllers/userController.js
+frontend/app.js
+frontend/index.html
+middlewares/authmiddleware.js
+models/ordermodel.js
+models/usermodel.js
+package.json
+routes/orderRoutes.js
+routes/userRoutes.js
+server.js
+utils/logger.js
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="config/db.js">
+const mongoose = require('mongoose');
+
+const connectDB = async () => {
+    try {
+        await mongoose.connect(process.env.MONGO_URI, {
+            useNewUrlParser: true,
+        });
+        console.log('mongodb active...')
+    }
+    catch (err) {
+        console.log(err);
+        process.exit(1);
+    }
+}
+
+module.exports = connectDB;
+</file>
+
+<file path="controllers/orderController.js">
+const Order = require('../models/ordermodel');
+const User = require('../models/usermodel');
+
+exports.createOrder = async (req, res) => {
+  try {
+    const { user_id, total_price, shipping_address } = req.body;
+
+    const user = await User.findById(user_id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const newOrder = new Order({
+      user_id,
+      total_price,
+      shipping_address
+    });
+    await newOrder.save();
+    res.status(201).json(newOrder);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+exports.getOrder = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id).populate('user_id');
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+    res.status(200).json(order);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+exports.getAllOrdersForUser = async (req, res) => {
+  try {
+    const orders = await Order.find({ user_id: req.params.user_id });
+    if (orders.length === 0) {
+      return res.status(404).json({ message: 'No orders' });
+    }
+    res.status(200).json(orders);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+exports.updateOrder = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+    const { status, shipping_address } = req.body;
+
+    if (status) {
+      order.status = status;
+    }
+    if (shipping_address) {
+      order.shipping_address = shipping_address;
+    }
+    order.updated_at = Date.now();
+    await order.save();
+    res.status(200).json(order);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+exports.cancelOrder = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    order.status = 'cancelled';
+    await order.save();
+
+    res.status(200).json({ message: 'Order cancelled successfully', order });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+</file>
+
+<file path="controllers/userController.js">
+const User = require('../models/usermodel');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const JWT_SECRET = 'your_jwt_secret_key';
+
+exports.createUser = async (req, res) => {
+    try {
+        const hashedPassword = await bcrypt.hash(req.body.password, 10);
+        const user = new User({ ...req.body, password: hashedPassword });
+        await user.save();
+        res.status(201).json(user);
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+};
+
+exports.getUser = async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        res.status(200).json(user);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
+exports.loginUser = async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(404).json({ error: 'Invalid email or password' });
+        }
+        const isPasswordValid = await bcrypt.compare(password, user.password);
+        if (!isPasswordValid) {
+            return res.status(401).json({ error: 'Invalid email or password' });
+        }
+        const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '1h' });
+
+        res.status(200).json({ message: 'Login successful', token });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+</file>
+
+<file path="frontend/app.js">
+const API_URL = 'http://localhost:5000/api';
+
+// Function to handle Login
+async function login() {
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+    const messageEl = document.getElementById('message');
+
+    if (!username || !password) {
+        messageEl.textContent = 'Please enter both username and password';
+        return;
+    }
+
+    const response = await fetch(`${API_URL}/login`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password }),
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+        localStorage.setItem('token', data.token);
+        messageEl.style.color = 'green';
+        messageEl.textContent = 'Login successful! Token stored.';
+    } else {
+        messageEl.style.color = 'red';
+        messageEl.textContent = data.message || 'Login failed';
+    }
+}
+</file>
+
+<file path="frontend/index.html">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Node API Frontend</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        h1 {
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Login to get JWT Token</h1>
+        <input type="text" id="username" placeholder="Username" required><br><br>
+        <input type="password" id="password" placeholder="Password" required><br><br>
+        <button onclick="login()">Login</button>
+        <p id="message" style="color: red;"></p>
+
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
+</file>
+
+<file path="middlewares/authmiddleware.js">
+const jwt = require('jsonwebtoken');
+
+const protect = (req, res, next) => {
+    const token = req.header('authorize');
+    if (!token) {
+        req.res.status(401).json({ message: 'authorization failed' });
+    }
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        req.user = decoded.user;
+        next();
+    } catch (err) {
+        res.status(401).json({ message: 'Token is not valid' });
+    }
+};
+module.exports = protect;
+</file>
+
+<file path="models/ordermodel.js">
+const mongoose = require('mongoose');
+
+const orderSchema = new mongoose.Schema({
+  user_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  total_price: {
+    type: Number,
+    required: true,
+    min: [0]
+  },
+  status: {
+    type: String,
+    enum: ['pending', 'completed', 'cancelled'],
+    default: 'pending'
+  },
+  shipping_address: {
+    type: String,
+    required: true
+  },
+  created_at: {
+    type: Date,
+    default: Date.now
+  }
+});
+
+orderSchema.pre('save', function (next) {
+  this.updated_at = Date.now();
+  next();
+});
+const Order = mongoose.model('Order', orderSchema);
+module.exports = Order;
+</file>
+
+<file path="models/usermodel.js">
+const mongoose = require('mongoose');
+
+const userSchema = new mongoose.Schema({
+  first_name: { type: String, required: true },
+  last_name: { type: String, required: true },
+  email: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+  phone_number: { type: String },
+  address: { type: String },
+  created_at: { type: Date, default: Date.now },
+  updated_at: { type: Date, default: Date.now },
+});
+const User = mongoose.model('User', userSchema);
+module.exports = User;
+</file>
+
+<file path="package.json">
+{
+  "name": "meetmux_code",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "axios": "^1.12.2",
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.19.1",
+    "nodemon": "^3.1.10",
+    "winston": "^3.18.3"
+  }
+}
+</file>
+
+<file path="routes/orderRoutes.js">
+const express = require('express');
+const orderrouter = express.Router();
+const orderController = require('../controllers/orderController');
+const protect = require('../middlewares/authmiddleware');
+
+orderrouter.post('/', protect, orderController.createOrder);
+orderrouter.get('/user/:user_id', protect, orderController.getAllOrdersForUser);
+orderrouter.put('/:id', protect, orderController.updateOrder);
+orderrouter.delete('/:id', protect, orderController.cancelOrder);
+
+module.exports = orderrouter;
+</file>
+
+<file path="routes/userRoutes.js">
+const express = require('express');
+const router = express.Router();
+const userController = require('../controllers/userController');
+const authMiddleware = require('../middlewares/authmiddleware'); 
+router.post('/register', userController.createUser);
+router.get('/:id', authMiddleware, userController.getUser);
+router.post('/login', userController.loginUser);
+
+module.exports = router;
+</file>
+
+<file path="server.js">
+const express = require('express');
+const dotenv = require('dotenv');
+const connectDB = require('./config/db');
+const userRoutes = require('./routes/userRoutes');
+// const orderRoutes = require('./routes/orderRoutes');
+const cors = require('cors');
+const orderrouter = require('./routes/orderRoutes');
+
+dotenv.config();
+connectDB();
+
+const app = express();
+app.use(express.json());
+const corsOptions = {
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
+app.use(cors(corsOptions));
+app.get('/', (req, res) => {
+    res.send('Welcome to the API server!');
+});
+app.use('/api/users', userRoutes);
+app.use('/api/orders', orderrouter);
+app.use((err, req, res, next) => {
+    console.log(err);
+    res.status(500).json({ message: 'Something went wrong!' });
+});
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+});
+</file>
+
+<file path="utils/logger.js">
+const winston = require('winston');
+
+const logger = winston.createLogger({
+  level: 'info',
+  transports: [
+    new winston.transports.Console({ format: winston.format.simple() }),
+  ],
+});
+module.exports = logger;
+</file>
+
+</files>
