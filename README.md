@@ -1,4 +1,4 @@
-# 🛒 Node.js Order Management API with JWT Authentication
+# Node.js Order Management API with JWT Authentication
 
 A simple full-stack project built using **Node.js**, **Express**, **MongoDB**, and a minimal **HTML/JS frontend**.  
 This app allows users to register, log in (with JWT-based authentication), and manage their orders securely.
@@ -27,5 +27,3 @@ This app allows users to register, log in (with JWT-based authentication), and m
 
 **Frontend:**
 - Vanilla HTML, CSS, and JavaScript (Fetch API)
-
-## 📂 Project Structure
